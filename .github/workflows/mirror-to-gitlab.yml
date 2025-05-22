@@ -1,7 +1,8 @@
-name: Mirror all branches to GitLab
+name: Mirror all branches to GitLab via HTTPS
 
+# Se dispara con cualquier push (cualquier rama / tag)
 on:
-  push:            # se dispara con cualquier push en cualquier rama
+  push:
 
 jobs:
   mirror:
@@ -13,17 +14,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup SSH key for GitLab
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.GITLAB_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          # añadimos la clave de tu GitLab self-hosted
-          ssh-keyscan git.planificando.net >> ~/.ssh/known_hosts
-
-      - name: Push mirror to GitLab
+      - name: Mirror to GitLab via HTTPS
         env:
-          GITLAB_REPO: git@git.planificando.net:jesus.palomino/SyntehticDataSuite.git
+          GITLAB_PAT: ${{ secrets.GITLAB_PAT }}
         run: |
-          git remote add gitlab "$GITLAB_REPO"
+          # Añadimos el remote apuntando a tu GitLab self-hosted usando el PAT
+          git remote add gitlab "https://oauth2:${GITLAB_PAT}@git.planificando.net/jesus.palomino/SyntehticDataSuite.git"
+          # Push de todas las refs (ramas, tags, etc.)
           git push --mirror gitlab
