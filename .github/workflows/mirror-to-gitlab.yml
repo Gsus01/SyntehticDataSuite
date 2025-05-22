@@ -1,0 +1,29 @@
+name: Mirror all branches to GitLab
+
+on:
+  push:            # se dispara con cualquier push en cualquier rama
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup SSH key for GitLab
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.GITLAB_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          # añadimos la clave de tu GitLab self-hosted
+          ssh-keyscan git.planificando.net >> ~/.ssh/known_hosts
+
+      - name: Push mirror to GitLab
+        env:
+          GITLAB_REPO: git@git.planificando.net:jesus.palomino/SyntehticDataSuite.git
+        run: |
+          git remote add gitlab "$GITLAB_REPO"
+          git push --mirror gitlab
