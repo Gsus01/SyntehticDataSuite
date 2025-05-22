@@ -1,6 +1,5 @@
-name: Mirror all branches to GitLab via HTTPS
+name: Mirror branches & tags to GitLab via HTTPS
 
-# Se dispara con cualquier push (cualquier rama / tag)
 on:
   push:
 
@@ -14,11 +13,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Mirror to GitLab via HTTPS
-        env:
-          GITLAB_PAT: ${{ secrets.GITLAB_PAT }}
+      - name: Add GitLab remote
         run: |
-          # Añadimos el remote apuntando a tu GitLab self-hosted usando el PAT
-          git remote add gitlab "https://oauth2:${GITLAB_PAT}@git.planificando.net/jesus.palomino/SyntehticDataSuite.git"
-          # Push de todas las refs (ramas, tags, etc.)
-          git push --mirror gitlab
+          git remote add gitlab "https://oauth2:${{ secrets.GITLAB_PAT }}@git.planificando.net/jesus.palomino/SyntehticDataSuite.git"
+
+      - name: Push all branches to GitLab
+        run: |
+          # Empuja cada rama local a GitLab (prune elimina las que ya no existen)
+          git push gitlab --prune --force refs/heads/*:refs/heads/*
+
+      - name: Push all tags to GitLab
+        run: |
+          # Empuja todas las etiquetas
+          git push gitlab --prune --tags
