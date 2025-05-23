@@ -1,0 +1,8 @@
+[project]
+name = "synthetic-data-suite"
+version = "0.1.0"
+dependencies = [
+    "prefect",
+    "pandas",
+    "scikit-learn",
+]
