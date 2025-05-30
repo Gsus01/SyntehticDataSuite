@@ -1,30 +1,34 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Configurar el estilo
 plt.style.use('default')
 
-# Leer el archivo CSV
-df = pd.read_csv('data/synthetic_output_my_gmm_experiment_01.csv')
+# Cargar datos originales y sintéticos
+df_real = pd.read_csv('data/train_FD001.csv')
+df_synth = pd.read_csv('data/synthetic_output_my_hmm_test.csv')
 
-# Crear la figura y los ejes
-fig, ax = plt.subplots(figsize=(12, 6))
+# Seleccionar solo las columnas numéricas compartidas
+cols_real = [col for col in df_real.columns if col.startswith('col')]
+cols_synth = [col for col in df_synth.columns if col.startswith('col')]
+cols_common = [col for col in cols_real if col in cols_synth]
 
-# Graficar las tres series temporales
-ax.plot(df['col1'], label='Serie 1', linewidth=1)
-ax.plot(df['col2'], label='Serie 2', linewidth=1)
-ax.plot(df['col3'], label='Serie 3', linewidth=1)
+if not cols_common:
+    raise ValueError("No hay columnas comunes para comparar.")
 
-# Personalizar la gráfica
-ax.set_title('Series Temporales Sintéticas', fontsize=14, pad=15)
-ax.set_xlabel('Tiempo', fontsize=12)
-ax.set_ylabel('Valor', fontsize=12)
-ax.legend(fontsize=10)
-ax.grid(True, alpha=0.3)
-
-# Ajustar los márgenes
-plt.tight_layout()
-
-# Guardar la figura
-plt.savefig('series_temporales.png', dpi=300, bbox_inches='tight')
-print("✅ Gráfica guardada como 'series_temporales.png'")
+# Graficar cada columna en una figura separada
+for col in cols_common:
+    plt.figure(figsize=(12, 5))
+    # Recortar para igualar longitud si es necesario
+    n = min(len(df_real[col]), len(df_synth[col]))
+    plt.plot(range(n), df_real[col].values[:n], label='Original', linewidth=1.5)
+    plt.plot(range(n), df_synth[col].values[:n], label='Sintético', linewidth=1.5, linestyle='--')
+    plt.title(f'Comparación de la serie temporal: {col}', fontsize=14, pad=15)
+    plt.xlabel('Índice de tiempo', fontsize=12)
+    plt.ylabel('Valor', fontsize=12)
+    plt.legend(fontsize=11)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    outname = f'comparacion_{col}.png'
+    plt.savefig(outname, dpi=300, bbox_inches='tight')
+    print(f"✅ Gráfica guardada como '{outname}'")
+    plt.close()

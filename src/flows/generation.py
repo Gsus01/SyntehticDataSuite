@@ -7,6 +7,7 @@ from typing import Dict, Any
 
 # Model imports
 from src.models.gmm_model import GMMWrapper
+from src.models.hmm_model import HMMWrapper
 # from src.models.base import SyntheticModel
 
 
@@ -35,6 +36,15 @@ def generate_data_task(model_path: str, model_name: str, config: Dict[str, Any],
                 model_name=model_name, 
                 model_path=model_path, 
                 config=config # Pass config, might be used for sampling parameters in future
+            )
+            model_instance.load_model()
+            df_synthetic = model_instance.sample(n_samples)
+        elif config["model_type"] == "hmm":
+            logger.debug("Initializing HMM model wrapper")
+            model_instance = HMMWrapper(
+                model_name=model_name,
+                model_path=model_path,
+                config=config
             )
             model_instance.load_model()
             df_synthetic = model_instance.sample(n_samples)

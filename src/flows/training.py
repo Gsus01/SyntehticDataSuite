@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional
 
 # Model imports - will grow as more models are added
 from src.models.gmm_model import GMMWrapper
+from src.models.hmm_model import HMMWrapper
 # from src.models.base import SyntheticModel # For type hinting if needed
 
 
@@ -21,7 +22,8 @@ def train_model_task(data_path, model_name, config):
     # Determine file type and load data
     try:
         if data_path.endswith(".csv"):
-            df = pd.read_csv(data_path, sep=r"\s+")
+            # Try standard CSV first (comma-separated)
+            df = pd.read_csv(data_path)
             logger.debug(f"Loaded CSV file with shape: {df.shape}")
         elif data_path.endswith(".txt"):
             # Assuming space-separated for .txt, adjust if needed or make configurable
@@ -52,6 +54,14 @@ def train_model_task(data_path, model_name, config):
         if config["model_type"] == "gmm":
             logger.debug("Initializing GMM model wrapper")
             model_instance = GMMWrapper(
+                model_name=model_name, 
+                model_path=str(model_artifact_path), 
+                config=config
+            )
+            model_instance.train(df)
+        elif config["model_type"] == "hmm":
+            logger.debug("Initializing HMM model wrapper")
+            model_instance = HMMWrapper(
                 model_name=model_name, 
                 model_path=str(model_artifact_path), 
                 config=config
