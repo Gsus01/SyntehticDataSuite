@@ -8,15 +8,27 @@ from typing import Dict, Any, Optional
 # Model imports - will grow as more models are added
 from src.models.gmm_model import GMMWrapper
 from src.models.hmm_model import HMMWrapper
+from src.core.config_manager import get_config, construct_path
+from src.core.model_selector import select_model
 # from src.models.base import SyntheticModel # For type hinting if needed
 
 
 @task
-def train_model_task(data_path, model_name, config):
+def load_data_task(data_path: Optional[str] = None) -> pd.DataFrame:
     """
-    Task to train a specified model.
+    Task to load training data.
     """
     logger = get_run_logger()
+    
+    # If no data_path provided, use default from config
+    if data_path is None:
+        config = get_config()
+        data_filename = config.get("paths", {}).get("default_input_file", "train_FD001.csv")
+        data_path = str(construct_path("base_data_dir", data_filename))
+        logger.info(f"🤖 Using default data path from config: '{data_path}'")
+    else:
+        logger.info(f"👨‍💻 Using specified data path: '{data_path}'")
+    
     logger.info(f"💾 Loading data from '{data_path}'...")
     
     # Determine file type and load data
@@ -36,15 +48,24 @@ def train_model_task(data_path, model_name, config):
         
         logger.debug(f"Data columns: {list(df.columns)}")
         logger.debug(f"Data types: {df.dtypes.to_dict()}")
+        logger.info(f"✅ Data loaded successfully: {df.shape[0]} rows, {df.shape[1]} columns")
+        return df
+        
     except Exception as e:
         logger.error(f"❌ Failed to load data from '{data_path}': {str(e)}")
         raise
-    
+
+
+@task
+def train_model_task(df: pd.DataFrame, model_name: str, config: dict):
+    """
+    Task to train a specified model.
+    """
+    logger = get_run_logger()
     logger.info(f"🏋️ Training model '{model_name}' of type '{config['model_type']}'...")
 
-    # Define where the model artifact will be saved
-    model_artifact_path = Path(f"./model_registry/{model_name}/model.pkl") # Standardize to .pkl
-    model_artifact_path.parent.mkdir(parents=True, exist_ok=True)
+    # Use config_manager to construct model path
+    model_artifact_path = construct_path("models_dir", "{model_name}.pkl", model_name)
     logger.debug(f"Model will be saved to: {model_artifact_path}")
 
     # Instantiate and train the model based on model_type
@@ -101,17 +122,59 @@ def train_model_task(data_path, model_name, config):
 
 
 @flow(log_prints=True)
-def training_flow(data_path, model_name, config):
+def training_flow(data_path: Optional[str] = None, model_name: Optional[str] = None, model_config_name: Optional[str] = None):
     """
-    Flow to train a model based on the provided configuration.
+    Flow to train a model using configuration from config.yaml.
+    
+    Args:
+        data_path: Path to training data. If None, uses default from config.
+        model_name: Name for the trained model. If None, uses model_config_name.
+        model_config_name: Name of model configuration in config.yaml. If None, uses default.
     """
     logger = get_run_logger()
-    logger.info(f"🚀 Starting training flow for '{model_name}' with config: {config['model_type']}")
+    logger.info(f"🚀 Starting training flow with config-based approach")
+    
+    try:
+        # Get model configuration from YAML
+        config = select_model(model_config_name)
+        
+        # Determine model name
+        if model_name is None:
+            model_name = model_config_name or config.get("model_type", "default_model")
+            logger.info(f"🤖 Using automatic model name: '{model_name}'")
+        else:
+            logger.info(f"👨‍💻 Using specified model name: '{model_name}'")
+        
+        logger.debug(f"Selected configuration: {config}")
+        
+        # Load data
+        df = load_data_task(data_path)
+        
+        # Train model
+        model_artifact_path = train_model_task(df, model_name, config)
+        
+        logger.info(f"✅ Training flow completed successfully. Model saved to '{model_artifact_path}'")
+        return model_artifact_path
+        
+    except Exception as e:
+        logger.error(f"❌ Training flow failed: {str(e)}")
+        raise
+
+
+# Legacy flow for backward compatibility
+@flow(log_prints=True)
+def training_flow_legacy(data_path, model_name, config):
+    """
+    Legacy training flow for backward compatibility.
+    """
+    logger = get_run_logger()
+    logger.info(f"🚀 Starting legacy training flow for '{model_name}' with config: {config['model_type']}")
     logger.debug(f"Data path: {data_path}")
     logger.debug(f"Configuration: {config}")
     
     try:
-        model_artifact_path = train_model_task(data_path, model_name, config)
+        df = load_data_task(data_path)
+        model_artifact_path = train_model_task(df, model_name, config)
         logger.info(f"✅ Training flow completed successfully. Model saved to '{model_artifact_path}'")
         return model_artifact_path
     except Exception as e:
