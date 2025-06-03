@@ -7,6 +7,7 @@ from typing import List, Tuple, Any, Optional, Union
 import logging
 
 from src.models.base import SyntheticModel
+from src.core.config_manager import construct_path
 
 # Set up logger for non-Prefect contexts
 logger = logging.getLogger(__name__)
@@ -15,18 +16,37 @@ class GMMWrapper(SyntheticModel):
     """
     Wrapper for scikit-learn's GaussianMixture model.
     """
-    def __init__(self, model_name: str, model_path: str, config: dict):
-        super().__init__(model_name, model_path, config)
+    def __init__(self, model_name: str, model_path: Optional[str] = None, config: Optional[dict] = None):
+        # If model_path is not provided, construct it using config_manager
+        if model_path is None:
+            model_path = str(construct_path("models_dir", "model_{model_name}.pkl", model_name))
+        
+        super().__init__(model_name, model_path, config or {})
         self.model: Optional[GaussianMixture] = None
         self.trained_columns: List[str] = []
 
     def _prepare_data(self, data: pd.DataFrame) -> Tuple[np.ndarray, List[str]]:
         """
         Prepares data by selecting columns based on config.
+        If no columns specified, auto-selects all numeric columns.
         """
         columns_to_use = self.config.get("gmm_columns_to_use")
+        
         if not columns_to_use:
-            raise ValueError("GMM configuration must specify 'gmm_columns_to_use' as a list of column names.")
+            # Auto-select all numeric columns
+            numeric_columns = data.select_dtypes(include=[np.number]).columns.tolist()
+            
+            # Exclude common non-feature columns
+            exclude_patterns = ['id', 'index', '_id', 'true_state', 'label', 'target']
+            for pattern in exclude_patterns:
+                numeric_columns = [col for col in numeric_columns if pattern.lower() not in col.lower()]
+            
+            if not numeric_columns:
+                raise ValueError("No numeric columns found in data. Please specify 'gmm_columns_to_use' explicitly.")
+            
+            columns_to_use = numeric_columns
+            log = self._get_logger()
+            log.info(f"📋 No columns specified. Auto-selected numeric columns: {columns_to_use}")
         
         # Ensure all specified columns exist in the DataFrame
         missing_cols = [col for col in columns_to_use if col not in data.columns]
@@ -61,6 +81,8 @@ class GMMWrapper(SyntheticModel):
         covariance_type = self.config.get("gmm_covariance_type", "diag")
         max_iter = self.config.get("gmm_max_iter", 100)
         random_state = self.config.get("gmm_random_state", 42)
+        tol = self.config.get("gmm_tol", 1e-3)
+        init_params = self.config.get("gmm_init_params", "kmeans")
 
         log.debug(f"GMM parameters: n_components={n_components}, covariance_type={covariance_type}, max_iter={max_iter}, random_state={random_state}")
         log.debug(f"Training on columns: {self.trained_columns}")
@@ -71,12 +93,16 @@ class GMMWrapper(SyntheticModel):
             covariance_type=covariance_type,
             max_iter=max_iter,
             random_state=random_state,
+            tol=tol,
+            init_params=init_params,
             **kwargs # Allow overriding from direct call if needed
         )
         
         try:
             self.model.fit(processed_data)
             log.info(f"✅ GMM model '{self.model_name}' trained successfully with {n_components} components")
+            log.debug(f"Model converged: {self.model.converged_}")
+            log.debug(f"Final log likelihood: {self.model.score(processed_data):.4f}")
         except Exception as e:
             log.error(f"❌ Failed to train GMM model '{self.model_name}': {str(e)}")
             raise
@@ -115,6 +141,7 @@ class GMMWrapper(SyntheticModel):
             raise ValueError("No model to save. Train the model first.")
 
         log = self._get_logger()
+        # Ensure the directory exists (construct_path already handles this)
         model_dir = Path(self.model_path).parent
         model_dir.mkdir(parents=True, exist_ok=True)
 

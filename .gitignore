@@ -178,3 +178,9 @@ documents/
 
 # Keys
 keys/
+
+# Model Registry
+model_registry/
+
+# Data
+data/

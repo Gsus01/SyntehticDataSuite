@@ -1,0 +1,57 @@
+# config/config.yaml
+
+prefect_version: "3.4.4" # Documentar la versión de Prefect para la que está pensado
+
+paths:
+  base_data_dir: "data"
+  # raw_data_dir: "data/archive/CMaps" # Descomentar si aún usas datos TXT originales en algún punto
+  processed_data_dir: "data/processed" # Para salidas intermedias si el CSV de entrada aún se transforma
+  models_dir: "data/models"
+  synthetic_output_dir: "data/synthetic_output"
+  default_input_file: "train_FD001.csv"
+
+flows:
+  training:
+    default_model_to_train: "gmm_default"
+  generation:
+    default_model_to_use: "gmm_default"
+    n_samples_to_generate: 1000
+
+models:
+  gmm_default:
+    type: "GMM"
+    params:
+      n_components: 1
+      covariance_type: "full"
+      random_state: 42
+
+  gmm_experiment_01:
+    type: "GMM"
+    params:
+      n_components: 3
+      covariance_type: "diag"
+      random_state: 123
+
+  hmm_default:
+    type: "HMM"
+    params:
+      n_components: 3  # Maps to n_states for HMM
+      covariance_type: "diag"
+      n_iter: 100
+      random_state: 42
+      # columns_to_use: ["col3", "col4", "col5"]  # Optional: specify columns
+      # sequence_column: "time"  # Optional: for temporal ordering
+
+  hmm_experiment_01:
+    type: "HMM" 
+    params:
+      n_components: 5
+      covariance_type: "full"
+      n_iter: 200
+      random_state: 123
+      tol: 1e-3
+      algorithm: "viterbi"
+
+  # vae_basic: # Ejemplo futuro
+  #   type: "VAE"
+  #   params: # ... 

@@ -5,4 +5,5 @@ dependencies = [
     "prefect",
     "pandas",
     "scikit-learn",
+    "hmmlearn",
 ]
